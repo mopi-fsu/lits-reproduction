@@ -12,11 +12,25 @@ explicit not-implemented message.
 
 | Lead | Module | Main paths |
 | --- | --- | --- |
-| Md Mehrab Hossain Opi | HPT, CDF prediction, local models, GPKL, PMSS | `include/lits/model/`, `src/model/` |
-| Bach Nguyen | Core nodes, collisions, subtree integration, index operations | `include/lits/core/`, `src/core/` |
-| Taskia Taher Oyshi | Compact leaves, scans, datasets, baselines, evaluation | `include/lits/leaf/`, `src/leaf/`, `benchmarks/`, `scripts/` |
+| Md Mehrab Hossain Opi ([@mopi-fsu](https://github.com/mopi-fsu)) | HPT, CDF prediction, local models, GPKL, PMSS | `include/lits/model/`, `src/model/` |
+| Bach Nguyen ([@bach6104](https://github.com/bach6104)) | Core nodes, collisions, subtree integration, index operations | `include/lits/core/`, `src/core/` |
+| Taskia Taher Oyshi ([@taskia15](https://github.com/taskia15)) | Compact leaves, scans, datasets, baselines, evaluation | `include/lits/leaf/`, `src/leaf/`, `benchmarks/`, `scripts/` |
 
 All members share integration, correctness validation, and the final report.
+
+## Start here
+
+Accept your collaborator invitation, clone this repository, and read your starter
+issue for exact files, deliverables, dependencies, and completion checks:
+
+- [Bach: core node ownership and bulkload validation (#1)](https://github.com/mopi-fsu/lits-reproduction/issues/1)
+- [Oyshi: compact-leaf insert, lookup, and ordered scan (#2)](https://github.com/mopi-fsu/lits-reproduction/issues/2)
+- [Opi: common-prefix utilities and GPKL (#3)](https://github.com/mopi-fsu/lits-reproduction/issues/3)
+
+Read [the interface contract](docs/interfaces.md) and
+[contribution workflow](CONTRIBUTING.md), create a feature branch, and open a pull
+request referencing your issue. Changes to shared interfaces need agreement
+from the affected module leads.
 
 ## Build
 
