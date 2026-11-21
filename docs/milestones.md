@@ -28,4 +28,5 @@
 - Add ablations for HPT, compact leaves, and subtree selection.
 - Add concurrency only after single-threaded correctness is established.
 
-The current repository completes the skeleton portion of milestone 1 only.
+The skeleton is complete. Milestone 2 has started with prefix utilities, GPKL,
+and local GPKL plus their correctness tests. Other algorithms remain stubs.
