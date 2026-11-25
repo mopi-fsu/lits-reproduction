@@ -17,5 +17,7 @@ jobs:
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
       - name: Build
         run: cmake --build build --parallel 2
+      - name: Run tests
+        run: ctest --test-dir build --output-on-failure
       - name: Run scaffold example
         run: ./build/lits_example

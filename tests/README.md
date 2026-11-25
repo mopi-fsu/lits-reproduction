@@ -1,6 +1,7 @@
 # Correctness testing plan
 
-No algorithm tests exist yet because the algorithms are placeholders. Register
+Core tests live in `tests/core/` and run with `ctest --test-dir build --output-on-failure`.
+Other modules have no tests yet because their algorithms are placeholders. Register
 real tests with CTest as each component is implemented. Suggested coverage:
 
 - GPKL: hand-computed sorted groups, singleton/empty policy, prefix-related keys.

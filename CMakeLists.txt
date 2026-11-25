@@ -21,9 +21,19 @@ add_library(lits_leaf src/leaf/compact_leaf.cpp)
 target_link_libraries(lits_leaf PUBLIC lits_options)
 
 # Bach: tree structure, operations, and integration.
-add_library(lits_core src/core/index.cpp)
+add_library(lits_core src/core/index.cpp src/core/node.cpp src/core/validation.cpp
+    src/core/routing.cpp)
 target_link_libraries(lits_core PUBLIC lits_model lits_leaf)
 add_library(lits::core ALIAS lits_core)
+
+enable_testing()
+add_executable(lits_core_tests tests/core/test_index.cpp)
+target_link_libraries(lits_core_tests PRIVATE lits::core)
+add_test(NAME core COMMAND lits_core_tests)
+
+add_executable(lits_routing_tests tests/core/test_routing.cpp)
+target_link_libraries(lits_routing_tests PRIVATE lits::core)
+add_test(NAME routing COMMAND lits_routing_tests)
 
 add_executable(lits_example examples/basic.cpp)
 target_link_libraries(lits_example PRIVATE lits::core)
