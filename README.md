@@ -3,11 +3,13 @@
 An independent course implementation and experimental reproduction of
 **LITS: An Optimized Learned Index for Strings** (Yang and Chen, PVLDB 2024).
 
-**Status: model utilities, HPT training, and initial core implemented.** Prefix
-length, GPKL, local GPKL, HPT counting/normalization, core ownership/validation,
-routing helpers, and empty/single-record index operations have correctness tests.
-Multi-record index operations, HPT string-CDF prediction, local prediction, PMSS,
-and compact-leaf operations remain placeholders that throw `std::logic_error`.
+**Status: model utilities, HPT training, initial core, and compact leaf implemented.**
+Prefix length, GPKL, local GPKL, HPT counting/normalization, core ownership/validation,
+routing helpers, empty/single-record index operations, and compact-leaf insert,
+lookup, and scan have correctness tests. The compact leaf uses simple sorted storage,
+not yet the paper's h-pointer layout. Multi-record index operations, HPT string-CDF
+prediction, local prediction, and PMSS remain placeholders that throw
+`std::logic_error`.
 There are no performance results yet. The benchmark entry point exits with an
 explicit not-implemented message.
 

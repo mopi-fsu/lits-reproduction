@@ -7,8 +7,11 @@ ownership, moves, input validation, and empty/single-record operations;
 `tests/core/test_routing.cpp` covers prefix confirmation and slot bounds.
 `tests/model/hpt_training_test.cpp`
 checks hand-calculated counts and exclusive CDFs, normalization, hash collisions,
-unseen rows, invalid inputs, retraining, and long strings. All four suites are
-registered with CTest:
+unseen rows, invalid inputs, retraining, and long strings.
+`tests/leaf/compact_leaf_test.cpp` covers compact-leaf insert results (inserted,
+duplicate, full), lookups, scan bounds and limits, key validation, prefix-related
+keys, key ownership, and a seeded differential check against `std::map`. All five
+suites are registered with CTest:
 
 ```sh
 ctest --test-dir build --output-on-failure
@@ -19,6 +22,6 @@ Register further tests as each component is implemented. Remaining coverage:
 - HPT prediction: monotonic string CDF, unseen contexts, prefix skipping, bounds.
 - Local model: equal endpoints, slot boundaries, non-finite input policy.
 - PMSS: interpolation grid points, upper boundaries, out-of-range inputs, mixes.
-- Index/leaves: differential checks against `std::map`, scans and promotion.
+- Index: differential checks against `std::map`, scans across nodes, and promotion.
 
 Passing the current build workflow does not establish full-index correctness.

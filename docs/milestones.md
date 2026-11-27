@@ -30,5 +30,6 @@
 
 The skeleton is complete. Milestone 2 includes prefix utilities, GPKL, local GPKL,
 rolling-hash HPT counting/normalization, core ownership/validation, routing helpers,
-and empty/single-record operations, with correctness tests. HPT string-CDF
+empty/single-record operations, and compact-leaf insert/lookup/scan with simple
+sorted storage, with correctness tests. HPT string-CDF
 prediction, multi-record integration, and other algorithms remain stubs.
