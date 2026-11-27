@@ -7,7 +7,12 @@ ownership, moves, input validation, and empty/single-record operations;
 `tests/core/test_routing.cpp` covers prefix confirmation and slot bounds.
 `tests/model/hpt_training_test.cpp`
 checks hand-calculated counts and exclusive CDFs, normalization, hash collisions,
-unseen rows, invalid inputs, retraining, and long strings. All four suites are
+unseen rows, invalid inputs, retraining, and long strings.
+`tests/model/hpt_cdf_test.cpp` checks Algorithm 1 with hand-calculated coordinates,
+skipped-prefix contexts, collisions, monotonicity, long keys, validation, and
+trained/moved-from state. `tests/model/local_model_test.cpp` checks endpoint
+normalization, clamping, slot boundaries, degenerate/non-finite cases, and HPT-to-slot
+composition. All six suites are
 registered with CTest:
 
 ```sh
@@ -16,8 +21,6 @@ ctest --test-dir build --output-on-failure
 
 Register further tests as each component is implemented. Remaining coverage:
 
-- HPT prediction: monotonic string CDF, unseen contexts, prefix skipping, bounds.
-- Local model: equal endpoints, slot boundaries, non-finite input policy.
 - PMSS: interpolation grid points, upper boundaries, out-of-range inputs, mixes.
 - Index/leaves: differential checks against `std::map`, scans and promotion.
 

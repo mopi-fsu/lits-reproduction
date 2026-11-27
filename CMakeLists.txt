@@ -51,4 +51,12 @@ if(BUILD_TESTING)
     add_executable(hpt_training_tests tests/model/hpt_training_test.cpp)
     target_link_libraries(hpt_training_tests PRIVATE lits_model)
     add_test(NAME hpt_training COMMAND hpt_training_tests)
+
+    add_executable(hpt_cdf_tests tests/model/hpt_cdf_test.cpp)
+    target_link_libraries(hpt_cdf_tests PRIVATE lits_model)
+    add_test(NAME hpt_cdf COMMAND hpt_cdf_tests)
+
+    add_executable(local_model_tests tests/model/local_model_test.cpp)
+    target_link_libraries(local_model_tests PRIVATE lits_model)
+    add_test(NAME local_model COMMAND local_model_tests)
 endif()
