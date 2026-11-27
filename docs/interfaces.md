@@ -19,6 +19,17 @@ changes through a PR involving the affected module leads.
 ## Model to core (Opi → Bach)
 
 - `Hpt::train`: construct a global model before building learned nodes.
+  The caller supplies a nonempty, sorted, unique sample using the key rules above.
+  Training counts every (prefix, next-character) pair. A 64-bit polynomial hash
+  starts at zero and updates as `hash = hash * 131 + character`; the preceding
+  prefix selects row `hash % 1024`. This is our rolling-hash choice, not the
+  authors' position/previous-character mapping. The 1024-by-128 table retains
+  only `cdf` and `prob` doubles per cell (2 MiB on our platform); integer counters
+  are temporary. CDF is exclusive of the current character. Unobserved rows stay
+  zero. Each training call replaces old statistics; invalid input throws
+  `std::invalid_argument` and preserves the previous table. No sampling,
+  distinguishing-prefix clipping, attenuation, or terminator counts are added.
+  `cell(row, character)` offers bounds-checked, read-only inspection.
 - `Hpt::cdf`: produce the model coordinate after a specified prefix.
 - `LocalLinearModel::fit`: derive endpoint normalization from CDF bounds.
 - `LocalLinearModel::predict`: map a CDF to a slot in `[0, slot_count)`.
@@ -48,7 +59,7 @@ changes through a PR involving the affected module leads.
 ## Decisions to settle before implementation
 
 - HPT terminator handling for keys that are prefixes of other keys.
-- Unseen HPT rows, training reset/retraining, sampling, and table ownership.
+- Prediction behavior for unseen HPT contexts and the sampling policy at bulkload.
 - Equal CDF endpoints and non-finite prediction values: fall back safely.
 - PMSS table format, calibration hardware, and interpolation at/outside bounds.
 - Index/leaf storage, copy/move rules, node layout, and subtrie ownership.
