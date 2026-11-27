@@ -1,13 +1,21 @@
 # Correctness testing plan
 
-Core tests live in `tests/core/` and run with `ctest --test-dir build --output-on-failure`.
-Other modules have no tests yet because their algorithms are placeholders. Register
-real tests with CTest as each component is implemented. Suggested coverage:
+`tests/model/gpkl_test.cpp` covers prefix comparisons, hand-computed GPKL values,
+local group boundaries (including a short tail), conceptual terminators, common
+prefix invariance, and input validation. `tests/core/test_index.cpp` covers core
+ownership, moves, input validation, and empty/single-record operations;
+`tests/core/test_routing.cpp` covers prefix confirmation and slot bounds.
+All three suites are registered with CTest:
 
-- GPKL: hand-computed sorted groups, singleton/empty policy, prefix-related keys.
+```sh
+ctest --test-dir build --output-on-failure
+```
+
+Register further tests as each component is implemented. Remaining coverage:
+
 - HPT: normalized rows, unseen contexts, retraining, monotonic CDF, bounds.
 - Local model: equal endpoints, slot boundaries, non-finite input policy.
 - PMSS: interpolation grid points, upper boundaries, out-of-range inputs, mixes.
 - Index/leaves: differential checks against `std::map`, scans and promotion.
 
-Passing the current build workflow does not establish algorithm correctness.
+Passing the current build workflow does not establish full-index correctness.

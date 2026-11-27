@@ -24,6 +24,13 @@ changes through a PR involving the affected module leads.
 - `LocalLinearModel::predict`: map a CDF to a slot in `[0, slot_count)`.
   Core node code separately handles prefix mismatches and reserved boundary slots.
 - `gpkl`: compute group hardness for a sorted unique key range.
+  Empty and singleton groups return zero. Keys must be nonempty with bytes
+  1..127; unsupported keys, duplicates, and unsorted input throw
+  `std::invalid_argument`. A conceptual terminator counts as a distinguishing
+  byte when one key is a prefix of another; no byte beyond a view is read.
+- `local_gpkl`: take the unweighted average of consecutive group scores, including
+  a final short group. Singleton groups contribute zero. Empty input returns
+  zero, but a zero group size always throws `std::invalid_argument`.
 - `Pmss::choose`: choose compact leaf, learned node, or HOT subtree using key
   count, hardness, and workload mix. Calibration belongs to Opi; the measurement
   runner and baseline adapters are coordinated with Oyshi.
@@ -40,14 +47,13 @@ changes through a PR involving the affected module leads.
 
 ## Decisions to settle before implementation
 
-- Empty/singleton GPKL and the final short local-GPKL group.
-- Terminator handling for keys that are prefixes of other keys.
+- HPT terminator handling for keys that are prefixes of other keys.
 - Unseen HPT rows, training reset/retraining, sampling, and table ownership.
 - Equal CDF endpoints and non-finite prediction values: fall back safely.
 - PMSS table format, calibration hardware, and interpolation at/outside bounds.
 - Index/leaf storage, copy/move rules, node layout, and subtrie ownership.
 
-Every current method stub throws `std::logic_error`. Replace a stub only when its
+Remaining method stubs throw `std::logic_error`. Replace a stub only when its
 input validation, behavior, and meaningful correctness checks are implemented.
 
 ## Core node model (Bach) — proposed, pending review by Opi and Oyshi
