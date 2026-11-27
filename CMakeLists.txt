@@ -38,4 +38,8 @@ if(BUILD_TESTING)
     add_executable(gpkl_tests tests/model/gpkl_test.cpp)
     target_link_libraries(gpkl_tests PRIVATE lits_model)
     add_test(NAME gpkl COMMAND gpkl_tests)
+
+    add_executable(hpt_training_tests tests/model/hpt_training_test.cpp)
+    target_link_libraries(hpt_training_tests PRIVATE lits_model)
+    add_test(NAME hpt_training COMMAND hpt_training_tests)
 endif()

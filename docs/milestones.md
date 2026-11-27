@@ -28,5 +28,6 @@
 - Add ablations for HPT, compact leaves, and subtree selection.
 - Add concurrency only after single-threaded correctness is established.
 
-The skeleton is complete. Milestone 2 has started with prefix utilities, GPKL,
-and local GPKL plus their correctness tests. Other algorithms remain stubs.
+The skeleton is complete. Milestone 2 includes prefix utilities, GPKL, local GPKL,
+and rolling-hash HPT counting/normalization, with correctness tests. HPT string-CDF
+prediction and other algorithms remain stubs.

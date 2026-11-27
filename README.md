@@ -3,8 +3,9 @@
 An independent course implementation and experimental reproduction of
 **LITS: An Optimized Learned Index for Strings** (Yang and Chen, PVLDB 2024).
 
-**Status: initial model utilities implemented.** Prefix length, GPKL, and local
-GPKL have correctness tests. The index, HPT, local prediction model, PMSS, and
+**Status: initial model utilities and HPT training implemented.** Prefix length,
+GPKL, local GPKL, and HPT counting/normalization have correctness tests.
+The index, HPT string-CDF prediction, local prediction model, PMSS, and
 compact-leaf operations remain placeholders that throw `std::logic_error`.
 There are no performance results yet. The benchmark entry point exits with an
 explicit not-implemented message.
@@ -46,7 +47,7 @@ ctest --test-dir build --output-on-failure
 ```
 
 Use a separate `build-release` directory and `-DCMAKE_BUILD_TYPE=Release` for
-future benchmarks. GitHub Actions builds both configurations, runs the GPKL
+future benchmarks. GitHub Actions builds both configurations, runs the model
 correctness tests, and runs the scaffold executable. The full index has no
 correctness suite yet.
 
