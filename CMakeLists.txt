@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(LITS_BUILD_BENCHMARKS "Build the benchmark entry point" ON)
+option(LITS_BUILD_TESTS "Build the correctness tests" ON)
 
 add_library(lits_options INTERFACE)
 target_include_directories(lits_options INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
@@ -59,4 +60,8 @@ if(BUILD_TESTING)
     add_executable(local_model_tests tests/model/local_model_test.cpp)
     target_link_libraries(local_model_tests PRIVATE lits_model)
     add_test(NAME local_model COMMAND local_model_tests)
+
+    add_executable(compact_leaf_tests tests/leaf/compact_leaf_test.cpp)
+    target_link_libraries(compact_leaf_tests PRIVATE lits_leaf)
+    add_test(NAME compact_leaf COMMAND compact_leaf_tests)
 endif()
