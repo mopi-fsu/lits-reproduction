@@ -3,13 +3,12 @@
 An independent course implementation and experimental reproduction of
 **LITS: An Optimized Learned Index for Strings** (Yang and Chen, PVLDB 2024).
 
-**Status: model utilities, HPT training, initial core, and compact leaf implemented.**
-Prefix length, GPKL, local GPKL, HPT counting/normalization, core ownership/validation,
-routing helpers, empty/single-record index operations, and compact-leaf insert,
-lookup, and scan have correctness tests. The compact leaf uses simple sorted storage,
-not yet the paper's h-pointer layout. Multi-record index operations, HPT string-CDF
-prediction, local prediction, and PMSS remain placeholders that throw
-`std::logic_error`.
+**Status: model prediction, initial core, and compact leaf implemented.** Prefix
+length, GPKL, local GPKL, HPT training/string-CDF prediction, local linear prediction,
+core ownership/validation, routing helpers, empty/single-record index operations,
+and compact-leaf insert/lookup/scan have correctness tests. The compact leaf uses
+simple sorted storage, not yet the paper's h-pointer layout. Multi-record index
+operations and PMSS remain placeholders that throw `std::logic_error`.
 There are no performance results yet. The benchmark entry point exits with an
 explicit not-implemented message.
 
@@ -51,7 +50,8 @@ ctest --test-dir build --output-on-failure
 
 Use a separate `build-release` directory and `-DCMAKE_BUILD_TYPE=Release` for
 future benchmarks. GitHub Actions builds both configurations, runs the GPKL,
-HPT training, core, and routing tests, and runs the scaffold executable.
+HPT training/prediction, local model, compact leaf, core, and routing tests, and
+runs the scaffold executable.
 Multi-record index integration is not implemented or covered yet.
 
 ## Layout

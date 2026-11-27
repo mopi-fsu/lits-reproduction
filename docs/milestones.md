@@ -29,7 +29,7 @@
 - Add concurrency only after single-threaded correctness is established.
 
 The skeleton is complete. Milestone 2 includes prefix utilities, GPKL, local GPKL,
-rolling-hash HPT counting/normalization, core ownership/validation, routing helpers,
-empty/single-record operations, and compact-leaf insert/lookup/scan with simple
-sorted storage, with correctness tests. HPT string-CDF
-prediction, multi-record integration, and other algorithms remain stubs.
+rolling-hash HPT training, Algorithm 1 string-CDF prediction, local linear models,
+core ownership/validation, routing helpers, empty/single-record operations, and
+compact-leaf insert/lookup/scan with simple sorted storage, with correctness tests.
+Multi-record integration, PMSS, and other algorithms remain stubs.

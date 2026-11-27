@@ -31,8 +31,28 @@ changes through a PR involving the affected module leads.
   distinguishing-prefix clipping, attenuation, or terminator counts are added.
   `cell(row, character)` offers bounds-checked, read-only inspection.
 - `Hpt::cdf`: produce the model coordinate after a specified prefix.
+  Algorithm 1 starts with CDF zero and prefix probability one. Hash skipped
+  bytes to retain the original training context, but accumulate probabilities
+  only from `prefix_length` onward (conditional on the confirmed prefix).
+  A fully skipped key returns zero. Unobserved/zero-probability contexts add no
+  further mass. Coordinates are bounded to [0,1] but may tie, especially for
+  prefix-related keys without terminator counts; core collision handling and
+  local-model degeneracy handling remain necessary. Prediction before training
+  (including on a moved-from model) throws `std::logic_error`. Empty or unsupported
+  keys and prefix lengths beyond the key throw `std::invalid_argument`.
 - `LocalLinearModel::fit`: derive endpoint normalization from CDF bounds.
+  Arguments are `(min_cdf, max_cdf)` in that order. Finite bounds must satisfy
+  `0 <= min_cdf <= max_cdf <= 1`, or `std::invalid_argument` is thrown. Equal
+  endpoints or intervals whose reciprocal produces non-finite parameters throw
+  `std::domain_error`; the core must select another structure instead of building
+  a degenerate learned node. Successful fits store slope `1/(max-min)` and
+  intercept `-min*slope`.
 - `LocalLinearModel::predict`: map a CDF to a slot in `[0, slot_count)`.
+  Apply slope and intercept, scale by the slot count, and round down. Finite
+  coordinates outside the fitted interval clamp to the first/last slot. Reject
+  zero slots, non-finite input/coefficients, and nonpositive slopes with
+  `std::invalid_argument`. Non-finite arithmetic throws `std::domain_error`.
+  Check the floating-point upper bound before conversion to an unsigned index.
   Core node code separately handles prefix mismatches and reserved boundary slots.
 - `gpkl`: compute group hardness for a sorted unique key range.
   Empty and singleton groups return zero. Keys must be nonempty with bytes
@@ -132,8 +152,8 @@ Keep the behavior and tests of the current leaf when the layout changes.
 ## Decisions to settle before implementation
 
 - HPT terminator handling for keys that are prefixes of other keys.
-- Prediction behavior for unseen HPT contexts and the sampling policy at bulkload.
-- Equal CDF endpoints and non-finite prediction values: fall back safely.
+- The sampling policy at bulkload.
+- Core integration of the local model's domain-error fallback paths.
 - PMSS table format, calibration hardware, and interpolation at/outside bounds.
 - Index/leaf storage, copy/move rules, node layout, and subtrie ownership.
 
