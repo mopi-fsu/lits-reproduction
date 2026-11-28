@@ -13,6 +13,8 @@
 #include <vector>
 
 static int failures = 0;
+// Optional argv[1]: added to every seed, to sweep different random sequences.
+static std::uint64_t g_seed_offset = 0;
 
 #define CHECK(cond)                                                              \
     do {                                                                         \
@@ -42,40 +44,62 @@ static std::vector<Record> to_records(const Ref& ref) {
     return out;
 }
 
+// Prints why a comparison failed, so a failing seed can be diagnosed from the log.
+static bool mismatch(const std::string& why) {
+    std::cerr << "  mismatch: " << why << '\n';
+    return false;
+}
+
 // Full comparison: size, every key, a miss probe, and full + bounded scans.
 static bool matches(const LitsIndex& idx, const Ref& ref, std::mt19937_64& rng,
                     std::size_t alphabet, std::size_t max_len) {
-    if (idx.size() != ref.size()) return false;
+    if (idx.size() != ref.size()) {
+        return mismatch("size " + std::to_string(idx.size()) + " != " + std::to_string(ref.size()));
+    }
     const auto all = idx.scan("", ref.size() + 5);
-    if (all.size() != ref.size()) return false;
+    if (all.size() != ref.size()) {
+        return mismatch("full scan returned " + std::to_string(all.size()) + " of " +
+                        std::to_string(ref.size()));
+    }
     std::size_t i = 0;
     for (const auto& [k, v] : ref) {
-        if (all[i].key != k || all[i].value != v) return false;
-        if (idx.lookup(k) != v) return false;
+        if (all[i].key != k || all[i].value != v) {
+            return mismatch("full scan position " + std::to_string(i) + " is '" + all[i].key +
+                            "', expected '" + k + "'");
+        }
+        if (idx.lookup(k) != v) return mismatch("lookup of existing key '" + k + "' failed");
         ++i;
     }
     for (int probe = 0; probe < 20; ++probe) {
         const std::string key = random_key(rng, alphabet, max_len);
         const auto it = ref.find(key);
         const auto got = idx.lookup(key);
-        if (it == ref.end() ? got.has_value() : got != it->second) return false;
+        if (it == ref.end() ? got.has_value() : got != it->second) {
+            return mismatch("lookup of '" + key + "' gave the wrong answer");
+        }
 
         const std::size_t limit = rng() % 12;
         const auto part = idx.scan(key, limit);
         std::size_t n = 0;
         for (auto lb = ref.lower_bound(key); lb != ref.end() && n < limit; ++lb, ++n) {
             if (n >= part.size() || part[n].key != lb->first || part[n].value != lb->second) {
-                return false;
+                return mismatch("scan('" + key + "', " + std::to_string(limit) + ") item " +
+                                std::to_string(n) + " is '" +
+                                (n < part.size() ? part[n].key : std::string("<missing>")) +
+                                "', expected '" + lb->first + "'");
             }
         }
-        if (part.size() != n) return false;
+        if (part.size() != n) {
+            return mismatch("scan('" + key + "', " + std::to_string(limit) + ") returned " +
+                            std::to_string(part.size()) + " items, expected " + std::to_string(n));
+        }
     }
     return true;
 }
 
 // Random keys over a small alphabet: lots of shared prefixes and prefix-related keys.
 static void test_bulkload_sizes() {
-    std::mt19937_64 rng(1);
+    std::mt19937_64 rng((1) + g_seed_offset);
     for (std::size_t n : {0u, 1u, 2u, 15u, 16u, 17u, 18u, 40u, 200u, 1000u, 4000u}) {
         for (std::size_t alphabet : {2u, 4u, 26u}) {
             if (alphabet == 2 && n > 1000) continue; // only 2046 distinct short keys exist
@@ -89,7 +113,7 @@ static void test_bulkload_sizes() {
 }
 
 static void test_structure_kinds() {
-    std::mt19937_64 rng(2);
+    std::mt19937_64 rng((2) + g_seed_offset);
     Ref ref;
     while (ref.size() < 2000) ref.emplace(random_key(rng, 26, 12), rng());
     LitsIndex idx;
@@ -109,7 +133,7 @@ static void test_structure_kinds() {
 static void test_degenerate_fallback() {
     Ref ref;
     for (std::size_t len = 1; len <= 300; ++len) ref.emplace(std::string(len, 'a'), len);
-    std::mt19937_64 rng(3);
+    std::mt19937_64 rng((3) + g_seed_offset);
     LitsIndex idx;
     idx.bulkload(to_records(ref));
     CHECK(matches(idx, ref, rng, 1, 300));
@@ -129,7 +153,7 @@ static void test_degenerate_fallback() {
 static void test_insert_growth() {
     for (std::size_t start : {0u, 1u, 2u, 16u, 17u, 300u}) {
         for (std::size_t alphabet : {3u, 26u}) {
-            std::mt19937_64 rng(10 + start + alphabet);
+            std::mt19937_64 rng((10 + start + alphabet) + g_seed_offset);
             Ref ref;
             while (ref.size() < start) ref.emplace(random_key(rng, alphabet, 8), rng());
             LitsIndex idx;
@@ -150,7 +174,7 @@ static void test_insert_growth() {
 static void test_random_operations() {
     for (std::size_t alphabet : {2u, 3u, 8u, 26u}) {
         for (std::size_t start : {0u, 20u, 500u}) {
-            std::mt19937_64 rng(100 + alphabet * 7 + start);
+            std::mt19937_64 rng((100 + alphabet * 7 + start) + g_seed_offset);
             Ref ref;
             while (ref.size() < start) ref.emplace(random_key(rng, alphabet, 9), rng());
             LitsIndex idx;
@@ -197,7 +221,7 @@ static void test_random_operations() {
 
 // Re-bulkload replaces a large tree; a smaller bulkload drops the trained model.
 static void test_rebulkload() {
-    std::mt19937_64 rng(5);
+    std::mt19937_64 rng((5) + g_seed_offset);
     Ref big, small;
     while (big.size() < 1000) big.emplace(random_key(rng, 26, 10), rng());
     while (small.size() < 30) small.emplace(random_key(rng, 26, 10), rng());
@@ -218,7 +242,7 @@ static void test_rebulkload() {
 
 // Resizing: erasing collapses nodes back into leaves; heavy growth rebuilds nodes.
 static void test_resizing() {
-    std::mt19937_64 rng(7);
+    std::mt19937_64 rng((7) + g_seed_offset);
     Ref ref;
     while (ref.size() < 3000) ref.emplace(random_key(rng, 26, 12), rng());
     LitsIndex idx;
@@ -279,7 +303,8 @@ static void test_resizing() {
     CHECK(cidx.node_count(NodeKind::hot_subtrie) == 0);
 }
 
-int main() {
+int main(int argc, char** argv) {
+    if (argc > 1) g_seed_offset = std::stoull(argv[1]);
     test_resizing();
     test_bulkload_sizes();
     test_structure_kinds();

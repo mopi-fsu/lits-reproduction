@@ -41,10 +41,25 @@ Slot make_leaf(Range r) {
     return Slot::leaf(std::move(leaf));
 }
 
+// Exact slot for `key`: the last slot whose lower bound is <= key (slot 0 if none).
+// The model supplies a cheap guess; the guess is kept only if the boundaries confirm
+// it, otherwise a binary search over the boundaries decides. Correctness therefore
+// never depends on the floating-point CDF being exactly monotone (it is not).
 std::size_t route_slot(const LearnedNode& node, std::string_view key, const Hpt* hpt) {
-    if (hpt == nullptr) internal_error("learned node without a trained HPT");
-    const double cdf = hpt->cdf(key, node.prefix.size());
-    return bound_slot(node.model.predict(cdf, node.slots.size()), node.slots.size());
+    const std::size_t n = node.slots.size();
+    const auto& lows = node.lows;
+    if (hpt != nullptr && relate_to_prefix(node.prefix, key) == PrefixRelation::within) {
+        const double cdf = hpt->cdf(key, node.prefix.size());
+        const std::size_t guess = bound_slot(node.model.predict(cdf, n), n);
+        const bool above_low = guess == 0 || std::string_view(lows[guess]) <= key;
+        const bool below_next = guess + 1 == n || key < std::string_view(lows[guess + 1]);
+        if (above_low && below_next) return guess;
+    }
+    const auto it = std::upper_bound(lows.begin(), lows.end(), key,
+                                     [](std::string_view k, const std::string& low) {
+                                         return k < std::string_view(low);
+                                     });
+    return it == lows.begin() ? 0 : static_cast<std::size_t>(it - lows.begin()) - 1;
 }
 
 // Returns nullopt when the model cannot be used for this group; the caller then
@@ -71,6 +86,7 @@ std::optional<Slot> try_build_learned(Range r, const Hpt& hpt) {
     node->prefix = r[0].key.substr(0, prefix_len);
     node->model = model;
     node->slots.resize(n);
+    node->lows.resize(n);
     node->count = node->built_count = n;
 
     std::size_t begin = 0;
@@ -83,9 +99,17 @@ std::optional<Slot> try_build_learned(Range r, const Hpt& hpt) {
         if (end - begin == n) return std::nullopt;       // no progress: all in one slot
         if (have_last && slot <= last_slot) return std::nullopt; // not monotone
         node->slots[slot] = build_group(r.sub(begin, end), &hpt);
+        node->lows[slot] = r[begin].key; // smallest key of the group
         have_last = true;
         last_slot = slot;
         begin = end;
+    }
+    // The largest key lands in the last slot, so there are no trailing empty slots;
+    // verify it rather than assume it.
+    if (node->slots[n - 1].empty()) return std::nullopt;
+    // An empty slot copies the next populated bound, so it never wins a lookup.
+    for (std::size_t s = n - 1; s-- > 0;) {
+        if (node->slots[s].empty()) node->lows[s] = node->lows[s + 1];
     }
     return Slot::learned(std::move(node));
 }
@@ -142,7 +166,6 @@ template <class SlotT>
 SlotT* child_for(SlotT& slot, std::string_view key, const Hpt* hpt) {
     if (slot.kind() == NodeKind::learned_node) {
         auto& node = slot.learned_node();
-        if (relate_to_prefix(node.prefix, key) != PrefixRelation::within) return nullptr;
         return &node.slots[route_slot(node, key, hpt)];
     }
     auto& node = slot.hot_subtrie();
@@ -216,15 +239,9 @@ void collect(const Slot& slot, std::string_view lower, std::size_t limit, Record
     }
     case NodeKind::learned_node: {
         const LearnedNode& node = slot.learned_node();
-        std::size_t first = 0;
-        if (!lower.empty()) {
-            switch (relate_to_prefix(node.prefix, lower)) {
-            case PrefixRelation::above: return; // every key here is < lower
-            case PrefixRelation::below: lower = {}; break;
-            case PrefixRelation::within: first = route_slot(node, lower, hpt); break;
-            }
-        }
-        // Only the predicted slot can mix keys below and above `lower`.
+        // Routing is exact, so slot `first` is the only one that can mix keys below
+        // and above `lower`; every later slot holds only keys >= lower.
+        const std::size_t first = lower.empty() ? 0 : route_slot(node, lower, hpt);
         for (std::size_t s = first; s < node.slots.size() && out.size() < limit; ++s) {
             collect(node.slots[s], s == first ? lower : std::string_view{}, limit, out, hpt);
         }
@@ -429,15 +446,6 @@ bool LitsIndex::insert_at(Slot& slot, std::string_view key, Value value) {
 
     case NodeKind::learned_node: {
         LearnedNode& node = slot.learned_node();
-        if (relate_to_prefix(node.prefix, key) != PrefixRelation::within) {
-            // The key lies outside every key this node was built for, so it
-            // cannot be a duplicate. Rebuild the subtree to include it.
-            Records all;
-            collect(slot, {}, std::numeric_limits<std::size_t>::max(), all, hpt_.get());
-            all = insert_sorted(std::move(all), key, value);
-            slot = build_group(Range{all.data(), all.size()}, hpt_.get());
-            return true;
-        }
         if (!insert_at(node.slots[route_slot(node, key, hpt_.get())], key, value)) return false;
         ++node.count;
         grow_if_doubled(slot);

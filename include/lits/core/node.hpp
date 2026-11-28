@@ -79,6 +79,13 @@ struct LearnedNode {
     LocalLinearModel model;
     // Child slots; slots.size() is the `slot_count` passed to model.predict.
     std::vector<Slot> slots;
+    // Exact routing boundaries, same length as `slots`. Slot s holds the keys in
+    // [lows[s], lows[s+1]) (slot 0 also takes everything smaller, the last slot
+    // everything larger). Non-decreasing and fixed at build time; an empty slot
+    // copies the next populated slot's bound so it never wins a lookup. The model
+    // only guesses the slot; the guess is verified against these bounds, because
+    // floating-point CDFs are monotone only up to rounding.
+    std::vector<std::string> lows;
     // Records stored below this node, maintained by insert/erase. `built_count` is
     // the count when the node was built; the index rebuilds the node when `count`
     // doubles it and collapses it into a leaf when `count` fits one.

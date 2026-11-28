@@ -44,6 +44,11 @@ if(BUILD_TESTING)
     add_executable(lits_index_diff_tests tests/core/test_index_diff.cpp)
     target_link_libraries(lits_index_diff_tests PRIVATE lits::core)
     add_test(NAME index_diff COMMAND lits_index_diff_tests)
+    # Different random sequences. Seeds 2, 5, 13, 25 and 44 exposed the rounding bug in
+    # the model's CDF ordering before routing was made exact; keep them as regressions.
+    foreach(seed 1 2 5 13 25 44)
+        add_test(NAME index_diff_seed_${seed} COMMAND lits_index_diff_tests ${seed})
+    endforeach()
 
     add_executable(lits_routing_tests tests/core/test_routing.cpp)
     target_link_libraries(lits_routing_tests PRIVATE lits::core)

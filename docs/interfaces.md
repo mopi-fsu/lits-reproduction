@@ -228,11 +228,16 @@ GPKL are not used yet because `Pmss::choose` is uncalibrated and throws):
 ### Routing (lookup/insert/update/erase on a `learned_node`)
 
 1. Confirm the node's common prefix with `relate_to_prefix` (`core/routing.hpp`):
-   `within` lets the model run; `below`/`above` mean the key lies outside the node's
-   key range and the model is not consulted (lookup: miss; insert: see below).
+   only a `within` key may use the model; `below`/`above` keys skip it.
 2. Ask `Hpt::cdf(key, prefix.size())` for the model coordinate (prefix already skipped).
-3. `model.predict(cdf, slots.size())` gives a slot in `[0, slots.size())`.
-4. Bound the slot with `bound_slot`: clamp to `slot_count - 1`; never index out of range.
+3. `model.predict(cdf, slots.size())` gives a *guess* in `[0, slots.size())`.
+4. Bound the guess with `bound_slot`, then **verify it against the node's exact slot
+   boundaries** (`LearnedNode::lows`): keep it only if `lows[g] <= key < lows[g+1]`,
+   otherwise binary-search `lows`. The model is a hint; boundaries decide. This is
+   required because `Hpt::cdf` is monotone only up to floating-point rounding (two
+   keys can come out 1 ulp in the wrong order), which previously put a larger key
+   in a lower slot and broke ordered scans. Keys outside the node's prefix route by
+   the boundaries alone, so no subtree rebuild is needed for them.
 5. Dispatch on the slot kind: `empty` -> miss (insert places a `single_record`);
    `single_record` -> compare keys (insert of a different key makes a two-key
    `compact_leaf`); `compact_leaf` -> leaf operation (insert reports `full` -> promote:
@@ -246,22 +251,22 @@ GPKL are not used yet because `Pmss::choose` is uncalibrated and throws):
 | --- | --- |
 | `bulkload` | All sizes. Invalid input throws and changes nothing; empty clears; repeated bulkload replaces. |
 | `lookup` / `update` | Descend by routing; leaf update rebuilds the leaf (<= 16 records) via `scan` + `insert`, since `CompactLeaf` has no update yet. |
-| `insert` | Empty/single/leaf/learned/subtrie; promotes a full leaf; a key outside a learned node's prefix rebuilds that subtree (O(subtree)); splits a subtrie on a shorter shared prefix. |
+| `insert` | Empty/single/leaf/learned/subtrie; promotes a full leaf; splits a subtrie on a shorter shared prefix. Routing boundaries are fixed at build time, so inserts never change them. |
 | `erase` | Removes the record; a leaf shrinks (to a single record at 1 key). An internal node whose record count falls to `compact_leaf_capacity` or less is collapsed into a leaf/single record/empty, recursively up the path. |
 | resizing | Each learned node and subtrie keeps `count` and `built_count`. When an insert makes `count >= 2 * built_count` the node is rebuilt from its records (new slot count and model); doubling keeps this amortized O(1) per insert. The global `Hpt` is not retrained. |
-| `scan` | In-order traversal from the inclusive lower bound; only the predicted slot of each learned node needs the bound. Relies on slot order matching key order, which bulkload verifies. |
+| `scan` | In-order traversal from the inclusive lower bound; with exact routing only the first slot of each learned node needs the bound. |
 
 ### Known limitations (follow-up work)
 
 - Resizing is coarse: nodes rebuild only on doubling (or collapse at <= 16 records),
-  with no partial slot splitting. A key outside a learned node's prefix triggers a full
-  subtree rebuild; reserved boundary slots would avoid that. The HPT is trained once
+  with no partial slot splitting. Slot boundaries are fixed per node, so slots that
+  were empty at build time stay unused until the next rebuild, and each node stores one
+  boundary key per slot (extra memory versus the paper). The HPT is trained once
   per tree, so a tree that grows far beyond its training data routes less evenly
   (still correct); retraining would need a coordinated full rebuild.
-- Order preservation for keys inserted after training relies on the HPT CDF being
-  monotone in key order; bulkload checks it for the trained keys, and the
-  differential tests (`tests/core/test_index_diff.cpp`) exercise it, but it is not
-  proven for arbitrary later inserts.
+- `Hpt::cdf` is only monotone up to rounding (found by the seeded differential tests;
+  worth telling the model owner). The core no longer depends on it for ordering, only
+  for a fast guess, so this affects speed at slot boundaries, not correctness.
 - Leaf update/erase rebuild the leaf; a native leaf API (and the kv-entry/h-pointer
   design in the leaf plan) would remove that.
 - Recursion depth follows tree depth; adversarial keys such as `a`, `aa`, `aaa`, ...
