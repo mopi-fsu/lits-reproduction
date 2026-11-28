@@ -144,9 +144,11 @@ static void test_bulkload_behavior() {
     CHECK_THROWS(std::invalid_argument, idx.bulkload({{"b", 1}, {"a", 2}}));
     CHECK(idx.size() == 1 && idx.lookup("k") == lits::Value{5});
 
-    // Valid but not-yet-buildable input is explicit, and also leaves state alone.
-    CHECK_THROWS(std::logic_error, idx.bulkload({{"a", 1}, {"b", 2}}));
-    CHECK(idx.size() == 1 && idx.lookup("k") == lits::Value{5});
+    // Two records become a compact leaf.
+    idx.bulkload({{"a", 1}, {"b", 2}});
+    CHECK(idx.size() == 2 && idx.root_kind() == NodeKind::compact_leaf);
+    CHECK(idx.lookup("b") == lits::Value{2});
+    idx.bulkload({{"k", 5}});
 
     // Repeated bulkload replaces rather than merges.
     idx.bulkload({{"other", 9}});
@@ -178,9 +180,12 @@ static void test_single_record_operations() {
     CHECK(idx.scan("n", 5).empty());
     CHECK(idx.scan("", 0).empty());
 
-    // A different key would need promotion: explicit, state unchanged.
-    CHECK_THROWS(std::logic_error, idx.insert("z", 1));
-    CHECK(idx.size() == 1 && idx.lookup("m") == lits::Value{42});
+    // A colliding key turns the single record into a two-key compact leaf.
+    CHECK(idx.insert("z", 1));
+    CHECK(idx.size() == 2 && idx.root_kind() == NodeKind::compact_leaf);
+    CHECK(idx.lookup("m") == lits::Value{42} && idx.lookup("z") == lits::Value{1});
+    CHECK(idx.erase("z")); // shrinks back to a single record
+    CHECK(idx.root_kind() == NodeKind::single_record);
 
     CHECK(idx.erase("m"));
     CHECK(idx.empty() && !idx.lookup("m").has_value());

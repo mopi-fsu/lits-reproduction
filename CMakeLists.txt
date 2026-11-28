@@ -41,6 +41,10 @@ if(BUILD_TESTING)
     target_link_libraries(lits_core_tests PRIVATE lits::core)
     add_test(NAME core COMMAND lits_core_tests)
 
+    add_executable(lits_index_diff_tests tests/core/test_index_diff.cpp)
+    target_link_libraries(lits_index_diff_tests PRIVATE lits::core)
+    add_test(NAME index_diff COMMAND lits_index_diff_tests)
+
     add_executable(lits_routing_tests tests/core/test_routing.cpp)
     target_link_libraries(lits_routing_tests PRIVATE lits::core)
     add_test(NAME routing COMMAND lits_routing_tests)

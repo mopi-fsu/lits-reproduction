@@ -5,8 +5,10 @@
 #include "lits/types.hpp"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace lits {
@@ -54,6 +56,8 @@ public:
     const LearnedNode& learned_node() const;
     CompactLeaf& compact_leaf();
     const CompactLeaf& compact_leaf() const;
+    HotSubtrie& hot_subtrie();
+    const HotSubtrie& hot_subtrie() const;
 
     void reset() noexcept;
 
@@ -67,7 +71,7 @@ private:
     std::unique_ptr<HotSubtrie> hot_;
 };
 
-// Internal node shape (no build or routing logic yet; see docs/interfaces.md).
+// Model-routed internal node (see docs/interfaces.md, "Routing").
 struct LearnedNode {
     // Bytes shared by every key below this node. Confirmed by the core before
     // the model is asked for a prediction.
@@ -75,9 +79,27 @@ struct LearnedNode {
     LocalLinearModel model;
     // Child slots; slots.size() is the `slot_count` passed to model.predict.
     std::vector<Slot> slots;
+    // Records stored below this node, maintained by insert/erase. `built_count` is
+    // the count when the node was built; the index rebuilds the node when `count`
+    // doubles it and collapses it into a leaf when `count` fits one.
+    std::size_t count = 0;
+    std::size_t built_count = 0;
 };
 
-// Placeholder: subtrie ownership is an open decision.
-struct HotSubtrie {};
+// Portable stand-in for the paper's HOT subtrie: a byte-wise compressed trie node.
+// It is NOT the HOT library (no SIMD, no height-optimized layout); it exists so
+// bulkload always terminates and stays correct when the model cannot separate a
+// group of keys. Do not report its performance as LITS/HOT results.
+struct HotSubtrie {
+    // Absolute: bytes shared by every key below this node, from the key start.
+    std::string prefix;
+    // The stored key equal to `prefix`, if any (a key that prefixes the others).
+    std::optional<Record> terminal;
+    // Sorted by byte; the byte is key[prefix.size()] for every key in that child.
+    std::vector<std::pair<unsigned char, Slot>> children;
+    // Same meaning as in LearnedNode (includes the terminal record).
+    std::size_t count = 0;
+    std::size_t built_count = 0;
+};
 
 } // namespace lits

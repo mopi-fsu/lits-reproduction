@@ -111,4 +111,13 @@ const CompactLeaf& Slot::compact_leaf() const {
     return *leaf_;
 }
 
+HotSubtrie& Slot::hot_subtrie() {
+    if (kind_ != NodeKind::hot_subtrie) wrong_kind("hot_subtrie", kind_);
+    return *hot_;
+}
+const HotSubtrie& Slot::hot_subtrie() const {
+    if (kind_ != NodeKind::hot_subtrie) wrong_kind("hot_subtrie", kind_);
+    return *hot_;
+}
+
 } // namespace lits

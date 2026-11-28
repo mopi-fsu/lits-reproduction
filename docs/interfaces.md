@@ -153,14 +153,16 @@ Keep the behavior and tests of the current leaf when the layout changes.
 
 - HPT terminator handling for keys that are prefixes of other keys.
 - The sampling policy at bulkload.
-- Core integration of the local model's domain-error fallback paths.
+- (Settled in the core: a `domain_error` from `LocalLinearModel::fit`, non-monotone CDFs,
+  or no-progress partitions fall back to the subtrie stand-in; see "Structure and building".)
 - PMSS table format, calibration hardware, and interpolation at/outside bounds.
-- Index/leaf storage, copy/move rules, node layout, and subtrie ownership.
+- The real HOT subtrie (the core currently uses a portable stand-in) and its ownership.
+- Leaf kv-entry sharing and a native leaf update/erase (core rebuilds the leaf for now).
 
 Remaining method stubs throw `std::logic_error`. Replace a stub only when its
 input validation, behavior, and meaningful correctness checks are implemented.
 
-## Core node model (Bach) — proposed, pending review by Opi and Oyshi
+## Core node model (Bach)
 
 ### Slot kinds
 
@@ -204,31 +206,64 @@ Promotion: drain the leaf (`scan("", capacity)`) plus the new record, then repla
 the slot with a `learned_node` (or `hot_subtrie`, per PMSS) built from those sorted
 records.
 
+### Structure and building
+
+`LitsIndex::bulkload` validates, then builds recursively with fixed rules (PMSS and
+GPKL are not used yet because `Pmss::choose` is uncalibrated and throws):
+
+- 0 records: `empty`; 1 record: `single_record`; 2..16 records: `compact_leaf`.
+- More than 16: train one global `Hpt` on all keys (no sampling yet), then build a
+  `learned_node`: `prefix` = the group's common prefix, `model` = `fit(min_cdf,
+  max_cdf)` over the group, `slot_count` = the group size. Keys are partitioned by
+  predicted slot and each slot is built recursively (a slot collision recurses).
+- Fallback to the `hot_subtrie` stand-in when the model cannot be used for a group:
+  `fit` throws `domain_error` (equal/too-close CDFs), CDFs are not non-decreasing in
+  key order, or every key predicts the same slot (no progress). The fallback is a
+  portable byte-wise compressed trie, **not the HOT library**; it guarantees
+  termination and correctness only. Its performance must not be reported as HOT/LITS.
+- One `Hpt` is trained per tree and is never retrained while learned nodes exist
+  (that would change every node's routing). If an index grew from a small leaf
+  without one, it is trained on the first promoted leaf's records.
+
 ### Routing (lookup/insert/update/erase on a `learned_node`)
 
-1. Confirm the node's common prefix with `relate_to_prefix` (`core/routing.hpp`,
-   implemented and tested): `within` lets the model run; `below`/`above` mean the key
-   lies outside the node's key range (handling is decided by the parent / reserved
-   slots), and the model is not consulted.
+1. Confirm the node's common prefix with `relate_to_prefix` (`core/routing.hpp`):
+   `within` lets the model run; `below`/`above` mean the key lies outside the node's
+   key range and the model is not consulted (lookup: miss; insert: see below).
 2. Ask `Hpt::cdf(key, prefix.size())` for the model coordinate (prefix already skipped).
-3. `model.predict(cdf, slots.size())` gives a slot in `[0, slots.size())`. Non-finite or
-   degenerate-CDF cases fall back as defined by Opi's decision above.
-4. Bound the slot defensively with `bound_slot` (implemented and tested): clamp to
-   `slot_count - 1`; never index out of range.
-5. Dispatch on the slot kind: `empty` → miss (insert places a `single_record`);
-   `single_record` → compare keys; `compact_leaf` → leaf operation;
-   `learned_node` / `hot_subtrie` → descend with the longer confirmed prefix.
-   A collision (insert into an occupied slot with a different key) promotes that slot
-   into a child structure.
+3. `model.predict(cdf, slots.size())` gives a slot in `[0, slots.size())`.
+4. Bound the slot with `bound_slot`: clamp to `slot_count - 1`; never index out of range.
+5. Dispatch on the slot kind: `empty` -> miss (insert places a `single_record`);
+   `single_record` -> compare keys (insert of a different key makes a two-key
+   `compact_leaf`); `compact_leaf` -> leaf operation (insert reports `full` -> promote:
+   drain with `scan`, add the key, rebuild the group); `learned_node` / `hot_subtrie`
+   -> descend. A subtrie routes by the byte at `prefix.size()` and keeps the key equal
+   to its prefix as a terminal record.
 
-### Working vs. stubbed today
+### Operations
 
-| Operation | Empty | Single record | Learned / leaf / HOT root |
-| --- | --- | --- | --- |
-| `bulkload` | works (0 records clears) | works (1 record) | > 1 record throws `logic_error` |
-| `lookup` / `update` / `erase` | works | works | `logic_error` |
-| `insert` | works (becomes single) | duplicate → false; new key throws `logic_error` (needs promotion) | `logic_error` |
-| `scan` | works | works | `logic_error` |
+| Operation | Behavior |
+| --- | --- |
+| `bulkload` | All sizes. Invalid input throws and changes nothing; empty clears; repeated bulkload replaces. |
+| `lookup` / `update` | Descend by routing; leaf update rebuilds the leaf (<= 16 records) via `scan` + `insert`, since `CompactLeaf` has no update yet. |
+| `insert` | Empty/single/leaf/learned/subtrie; promotes a full leaf; a key outside a learned node's prefix rebuilds that subtree (O(subtree)); splits a subtrie on a shorter shared prefix. |
+| `erase` | Removes the record; a leaf shrinks (to a single record at 1 key). An internal node whose record count falls to `compact_leaf_capacity` or less is collapsed into a leaf/single record/empty, recursively up the path. |
+| resizing | Each learned node and subtrie keeps `count` and `built_count`. When an insert makes `count >= 2 * built_count` the node is rebuilt from its records (new slot count and model); doubling keeps this amortized O(1) per insert. The global `Hpt` is not retrained. |
+| `scan` | In-order traversal from the inclusive lower bound; only the predicted slot of each learned node needs the bound. Relies on slot order matching key order, which bulkload verifies. |
 
-All validation is implemented. Unavailable paths throw rather than emulate the index
-with a temporary map.
+### Known limitations (follow-up work)
+
+- Resizing is coarse: nodes rebuild only on doubling (or collapse at <= 16 records),
+  with no partial slot splitting. A key outside a learned node's prefix triggers a full
+  subtree rebuild; reserved boundary slots would avoid that. The HPT is trained once
+  per tree, so a tree that grows far beyond its training data routes less evenly
+  (still correct); retraining would need a coordinated full rebuild.
+- Order preservation for keys inserted after training relies on the HPT CDF being
+  monotone in key order; bulkload checks it for the trained keys, and the
+  differential tests (`tests/core/test_index_diff.cpp`) exercise it, but it is not
+  proven for arbitrary later inserts.
+- Leaf update/erase rebuild the leaf; a native leaf API (and the kv-entry/h-pointer
+  design in the leaf plan) would remove that.
+- Recursion depth follows tree depth; adversarial keys such as `a`, `aa`, `aaa`, ...
+  of unbounded length produce a deep subtrie chain.
+- Single-threaded only; no concurrency yet. Scan materializes records.
