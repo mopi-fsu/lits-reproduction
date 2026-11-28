@@ -8,7 +8,9 @@ length, GPKL, local GPKL, HPT training/string-CDF prediction, local linear predi
 core ownership/validation, routing helpers, empty/single-record index operations,
 and compact-leaf insert/lookup/scan have correctness tests. The compact leaf uses
 simple sorted storage, not yet the paper's h-pointer layout. Multi-record index
-operations and PMSS remain placeholders that throw `std::logic_error`.
+operations remain placeholders that throw `std::logic_error`. PMSS validates
+caller-supplied calibration and implements interpolation/selection, but real
+benchmark calibration is not yet available.
 There are no performance results yet. The benchmark entry point exits with an
 explicit not-implemented message.
 
@@ -50,7 +52,7 @@ ctest --test-dir build --output-on-failure
 
 Use a separate `build-release` directory and `-DCMAKE_BUILD_TYPE=Release` for
 future benchmarks. GitHub Actions builds both configurations, runs the GPKL,
-HPT training/prediction, local model, compact leaf, core, and routing tests, and
+HPT training/prediction, local model, PMSS, compact leaf, core, and routing tests, and
 runs the scaffold executable.
 Multi-record index integration is not implemented or covered yet.
 
