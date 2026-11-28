@@ -65,6 +65,19 @@ changes through a PR involving the affected module leads.
 - `Pmss::choose`: choose compact leaf, learned node, or HOT subtree using key
   count, hardness, and workload mix. Calibration belongs to Opi; the measurement
   runner and baseline adapters are coordinated with Oyshi.
+  Construct `Pmss` with caller-supplied `Calibration`: nonempty, strictly increasing,
+  finite/nonnegative GPKL and log2(key count) axes, and four finite/positive latency
+  tables (`lit_read`, `lit_insert`, `hot_read`, `hot_insert`) indexed as
+  `[gpkl_index][size_index]`. All four tables must share axes and latency units.
+  Values are bilinearly interpolated on these axes, with out-of-range coordinates
+  clamped to the measured boundary; single-entry axes are supported. Equation 5
+  combines each index's read/insert estimates using `read_fraction` and
+  `1-read_fraction`. Groups of 1..16 keys use compact leaves; larger groups choose
+  the lower expected latency, preferring learned nodes on a tie. Zero keys,
+  non-finite/negative GPKL, invalid workload fractions, and invalid calibration
+  throw `std::invalid_argument`; a moved-from PMSS throws `std::logic_error`.
+  No default calibration, measurement data, or file loader is supplied. Artificial
+  tables in tests verify arithmetic only, not performance on target hardware.
 
 ## Leaf to core (Oyshi → Bach)
 
@@ -154,7 +167,7 @@ Keep the behavior and tests of the current leaf when the layout changes.
 - HPT terminator handling for keys that are prefixes of other keys.
 - The sampling policy at bulkload.
 - Core integration of the local model's domain-error fallback paths.
-- PMSS table format, calibration hardware, and interpolation at/outside bounds.
+- Real PMSS calibration data, calibration hardware, and any calibration file format.
 - Index/leaf storage, copy/move rules, node layout, and subtrie ownership.
 
 Remaining method stubs throw `std::logic_error`. Replace a stub only when its

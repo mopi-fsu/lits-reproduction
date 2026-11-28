@@ -32,4 +32,6 @@ The skeleton is complete. Milestone 2 includes prefix utilities, GPKL, local GPK
 rolling-hash HPT training, Algorithm 1 string-CDF prediction, local linear models,
 core ownership/validation, routing helpers, empty/single-record operations, and
 compact-leaf insert/lookup/scan with simple sorted storage, with correctness tests.
-Multi-record integration, PMSS, and other algorithms remain stubs.
+PMSS interpolation and selection are implemented and tested with artificial
+calibration tables. Real calibration, multi-record integration, and the remaining
+index algorithms are still pending.

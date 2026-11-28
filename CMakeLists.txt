@@ -64,4 +64,8 @@ if(BUILD_TESTING)
     add_executable(compact_leaf_tests tests/leaf/compact_leaf_test.cpp)
     target_link_libraries(compact_leaf_tests PRIVATE lits_leaf)
     add_test(NAME compact_leaf COMMAND compact_leaf_tests)
+
+    add_executable(pmss_tests tests/model/pmss_test.cpp)
+    target_link_libraries(pmss_tests PRIVATE lits_model)
+    add_test(NAME pmss COMMAND pmss_tests)
 endif()
